@@ -45,8 +45,10 @@ function geminiDevPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [react(), geminiDevPlugin()],
+  base: './',
   build: {
     outDir: 'dist',
+    emptyOutDir: true,
   },
   server: {
     host: '0.0.0.0',
