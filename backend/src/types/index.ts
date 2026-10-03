@@ -1,0 +1,31 @@
+export enum Role {
+  STUDENT = 'STUDENT',
+  MAINTENANCE = 'MAINTENANCE',
+  WARDEN = 'WARDEN',
+  SUPERADMIN = 'SUPERADMIN',
+}
+
+export enum HostelType {
+  BOYS = 'BOYS',
+  GIRLS = 'GIRLS',
+  COED = 'COED',
+}
+
+export enum Severity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum ComplaintStatus {
+  SUBMITTED = 'SUBMITTED',
+  AI_PROCESSED = 'AI_PROCESSED',
+  NEEDS_REVIEW = 'NEEDS_REVIEW',
+  ASSIGNED = 'ASSIGNED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  ON_HOLD = 'ON_HOLD',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+  REOPENED = 'REOPENED',
+}

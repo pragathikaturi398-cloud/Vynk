@@ -1,0 +1,264 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String           @id @default(uuid())
+  name                String
+  email               String           @unique
+  password_hash       String
+  role                String           @default("STUDENT") // STUDENT, MAINTENANCE, WARDEN, SUPERADMIN
+  phone               String?
+  created_at          DateTime         @default(now())
+
+  // Relations
+  hostelsWarded       Hostel[]         @relation("WardenHostels")
+  roomAllocations     RoomAllocation[]
+  teamsLed            Team[]           @relation("TeamHead")
+  teamMemberships     TeamMember[]
+  complaintsSubmitted Complaint[]      @relation("StudentComplaints")
+  complaintsAssigned  Complaint[]      @relation("AssignedComplaints")
+  complaintEvents     ComplaintEvent[]
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model Hostel {
+  id         String     @id @default(uuid())
+  name       String
+  type       String     @default("COED") // BOYS, GIRLS, COED
+  warden_id  String?
+  warden     User?      @relation("WardenHostels", fields: [warden_id], references: [id], onDelete: SetNull)
+
+  blocks     Block[]
+  complaints Complaint[]
+
+  @@map("hostels")
+}
+
+model Block {
+  id         String   @id @default(uuid())
+  hostel_id  String
+  hostel     Hostel   @relation(fields: [hostel_id], references: [id], onDelete: Cascade)
+  name       String
+
+  floors     Floor[]
+
+  @@map("blocks")
+}
+
+model Floor {
+  id        String   @id @default(uuid())
+  block_id  String
+  block     Block    @relation(fields: [block_id], references: [id], onDelete: Cascade)
+  number    Int
+
+  rooms     Room[]
+
+  @@map("floors")
+}
+
+model Room {
+  id          String           @id @default(uuid())
+  floor_id    String
+  floor       Floor            @relation(fields: [floor_id], references: [id], onDelete: Cascade)
+  room_no     String
+  capacity    Int              @default(2)
+
+  allocations RoomAllocation[]
+  complaints  Complaint[]
+
+  @@map("rooms")
+}
+
+model RoomAllocation {
+  id         String    @id @default(uuid())
+  room_id    String
+  room       Room      @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  student_id String
+  student    User      @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  from_date  DateTime  @default(now())
+  to_date    DateTime?
+
+  @@map("room_allocations")
+}
+
+model Category {
+  id                String        @id @default(uuid())
+  name              String        @unique
+  default_team_id   String?
+  default_sla_hours Int           @default(24)
+
+  subcategories     Subcategory[]
+  complaints        Complaint[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id            String      @id @default(uuid())
+  category_id   String
+  category      Category    @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  name          String
+  base_severity String      @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+
+  complaints    Complaint[]
+
+  @@map("subcategories")
+}
+
+model Team {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  category_ids String        @default("[]") // JSON string array of category IDs
+  head_id      String?
+  head         User?         @relation("TeamHead", fields: [head_id], references: [id], onDelete: SetNull)
+
+  members      TeamMember[]
+  complaints   Complaint[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id           String   @id @default(uuid())
+  team_id      String
+  team         Team     @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user_id      String
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  active       Boolean  @default(true)
+  current_load Int      @default(0)
+
+  @@unique([team_id, user_id])
+  @@map("team_members")
+}
+
+model Complaint {
+  id               String                 @id @default(uuid())
+  student_id       String
+  student          User                   @relation("StudentComplaints", fields: [student_id], references: [id], onDelete: Cascade)
+  room_id          String
+  room             Room                   @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  hostel_id        String
+  hostel           Hostel                 @relation(fields: [hostel_id], references: [id], onDelete: Cascade)
+  category_id      String
+  category         Category               @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  subcategory_id   String
+  subcategory      Subcategory            @relation(fields: [subcategory_id], references: [id], onDelete: Restrict)
+
+  title            String
+  description      String
+  severity         String                 @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  priority_score   Float                  @default(1.0)
+  status           String                 @default("SUBMITTED") // SUBMITTED, AI_PROCESSED, NEEDS_REVIEW, ASSIGNED, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED, REOPENED
+
+  ai_category      String?
+  ai_confidence    Float?
+  ai_summary       String?
+
+  duplicate_of_id  String?
+  parentComplaint  Complaint?             @relation("ComplaintDuplicates", fields: [duplicate_of_id], references: [id], onDelete: SetNull)
+  duplicates       Complaint[]            @relation("ComplaintDuplicates")
+
+  embedding_data   String?                // Fallback JSON-serialized vector for cross-db compatibility
+
+  assigned_team_id String?
+  assignedTeam     Team?                  @relation(fields: [assigned_team_id], references: [id], onDelete: SetNull)
+  assigned_to      String?
+  assignedUser     User?                  @relation("AssignedComplaints", fields: [assigned_to], references: [id], onDelete: SetNull)
+
+  sla_due_at       DateTime?
+  escalation_level Int                    @default(0)
+
+  created_at       DateTime               @default(now())
+  resolved_at      DateTime?
+  closed_at        DateTime?
+
+  attachments      ComplaintAttachment[]
+  events           ComplaintEvent[]
+  feedbacks        Feedback[]
+  escalations      Escalation[]
+  notifications    Notification[]
+
+  @@index([status, hostel_id, category_id])
+  @@index([sla_due_at])
+  @@map("complaints")
+}
+
+model ComplaintAttachment {
+  id           String    @id @default(uuid())
+  complaint_id String
+  complaint    Complaint @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  url          String
+  mime_type    String
+  size         Int
+
+  @@map("complaint_attachments")
+}
+
+model ComplaintEvent {
+  id           String           @id @default(uuid())
+  complaint_id String
+  complaint    Complaint        @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  actor_id     String?
+  actor        User?            @relation(fields: [actor_id], references: [id], onDelete: SetNull)
+  action       String
+  from_status  String?
+  to_status    String?
+  note         String?
+  created_at   DateTime         @default(now())
+
+  @@map("complaint_events")
+}
+
+model Feedback {
+  id           String    @id @default(uuid())
+  complaint_id String
+  complaint    Complaint @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  rating       Int       // 1 to 5
+  comment      String?
+  created_at   DateTime  @default(now())
+
+  @@map("feedback")
+}
+
+model Notification {
+  id           String     @id @default(uuid())
+  user_id      String
+  user         User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  complaint_id String?
+  complaint    Complaint? @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  message      String
+  read         Boolean    @default(false)
+  created_at   DateTime   @default(now())
+
+  @@map("notifications")
+}
+
+model Escalation {
+  id            String    @id @default(uuid())
+  complaint_id  String
+  complaint     Complaint @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  level         Int       // 1 or 2
+  reason        String
+  escalated_to  String?
+  created_at    DateTime  @default(now())
+
+  @@map("escalations")
+}
+
+model Insight {
+  id           String   @id @default(uuid())
+  scope        String   // "HOSTEL", "CATEGORY", "GLOBAL"
+  period       String   // "30_DAYS", "WEEKLY"
+  summary_text String
+  created_at   DateTime @default(now())
+
+  @@map("insights")
+}
