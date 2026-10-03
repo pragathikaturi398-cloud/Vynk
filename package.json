@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "prisma generate && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@prisma/client": "^5.19.1",
     "clsx": "2.1.1",
     "lucide-react": "0.441.0",
     "react": "18.3.1",
@@ -26,6 +27,7 @@
     "@vitejs/plugin-react": "4.3.1",
     "autoprefixer": "10.4.20",
     "postcss": "8.4.45",
+    "prisma": "^5.19.1",
     "tailwindcss": "3.4.10",
     "typescript": "5.5.4",
     "vite": "5.4.2"

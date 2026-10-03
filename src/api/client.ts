@@ -248,7 +248,7 @@ const INITIAL_COMPLAINTS: Complaint[] = [
         action: 'AI_TRIAGE',
         from_status: 'SUBMITTED',
         to_status: 'AI_PROCESSED',
-        note: 'AI classified as Plumbing / Water Leakage (Severity: CRITICAL, confidence 0.94)',
+        note: 'Auto-classified as Plumbing / Water Leakage (Severity: CRITICAL, confidence 0.94)',
         created_at: new Date(Date.now() - 3550 * 1000).toISOString(),
       },
       {
@@ -306,7 +306,7 @@ const INITIAL_COMPLAINTS: Complaint[] = [
         action: 'AI_DUPLICATE_DETECTED',
         from_status: 'SUBMITTED',
         to_status: 'AI_PROCESSED',
-        note: 'AI detected 92% semantic similarity with complaint #c-101. Linked as duplicate.',
+        note: 'System detected 92% semantic similarity with complaint #c-101. Linked as duplicate.',
         created_at: new Date(Date.now() - 1750 * 1000).toISOString(),
       },
     ],
@@ -660,7 +660,7 @@ async function handleMockRequest<T>(endpoint: string, options: RequestInit = {})
             action: 'AI_TRIAGE',
             from_status: 'SUBMITTED',
             to_status: 'AI_PROCESSED',
-            note: `AI classified as ${assignedCategory} (${assignedSeverity}, confidence: ${aiResult?.confidence || 0.92})`,
+            note: `Auto-classified as ${assignedCategory} (${assignedSeverity}, confidence: ${aiResult?.confidence || 0.92})`,
             created_at: new Date().toISOString(),
           },
           {

@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  MAINTENANCE
+  WARDEN
+  SUPERADMIN
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplaintStatus {
+  SUBMITTED
+  AI_PROCESSED
+  NEEDS_REVIEW
+  ASSIGNED
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+enum ActionType {
+  SUBMITTED
+  AI_TRIAGE
+  AI_DUPLICATE_DETECTED
+  NEEDS_REVIEW
+  ASSIGNED
+  STATUS_CHANGE
+  NOTE_ADDED
+  ESCALATED
+  REOPENED
+  RESOLVED
+  CLOSED
+}
+
+enum HostelType {
+  BOYS
+  GIRLS
+  COED
+}
+
+model User {
+  id                String            @id @default(uuid())
+  email             String            @unique
+  password_hash     String
+  name              String
+  role              Role              @default(STUDENT)
+  phone             String?
+  student_id_number String?
+  is_first_login    Boolean           @default(false)
+  is_active         Boolean           @default(true)
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  hostelsWarded     Hostel[]          @relation("HostelWarden")
+  allocations       RoomAllocation[]
+  complaintsFiled   Complaint[]       @relation("StudentComplaints")
+  complaintsAssigned Complaint[]      @relation("AssignedComplaints")
+  teamMemberships   TeamMember[]
+  teamsLed          MaintenanceTeam[] @relation("TeamLead")
+  eventsTriggered   ComplaintEvent[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+model Hostel {
+  id         String      @id @default(uuid())
+  name       String
+  type       HostelType
+  warden_id  String?
+  created_at DateTime    @default(now())
+
+  warden     User?       @relation("HostelWarden", fields: [warden_id], references: [id])
+  blocks     Block[]
+  complaints Complaint[]
+
+  @@map("hostels")
+}
+
+model Block {
+  id         String   @id @default(uuid())
+  hostel_id  String
+  name       String
+
+  hostel     Hostel   @relation(fields: [hostel_id], references: [id], onDelete: Cascade)
+  floors     Floor[]
+
+  @@map("blocks")
+}
+
+model Floor {
+  id         String   @id @default(uuid())
+  block_id   String
+  number     Int
+
+  block      Block    @relation(fields: [block_id], references: [id], onDelete: Cascade)
+  rooms      Room[]
+
+  @@map("floors")
+}
+
+model Room {
+  id          String           @id @default(uuid())
+  floor_id    String
+  room_no     String
+  capacity    Int              @default(2)
+
+  floor       Floor            @relation(fields: [floor_id], references: [id], onDelete: Cascade)
+  allocations RoomAllocation[]
+  complaints  Complaint[]
+
+  @@map("rooms")
+}
+
+model RoomAllocation {
+  id         String    @id @default(uuid())
+  room_id    String
+  student_id String
+  from_date  DateTime  @default(now())
+  to_date    DateTime?
+
+  room       Room      @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  student    User      @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@map("room_allocations")
+}
+
+model Category {
+  id                String            @id @default(uuid())
+  name              String            @unique
+  default_sla_hours Int               @default(24)
+  default_team_id   String?
+  created_at        DateTime          @default(now())
+
+  default_team      MaintenanceTeam?  @relation("DefaultCategoryTeam", fields: [default_team_id], references: [id])
+  subcategories     Subcategory[]
+  complaints        Complaint[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id            String      @id @default(uuid())
+  category_id   String
+  name          String
+  base_severity Severity    @default(MEDIUM)
+
+  category      Category    @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  complaints    Complaint[]
+
+  @@map("subcategories")
+}
+
+model MaintenanceTeam {
+  id          String        @id @default(uuid())
+  name        String
+  head_id     String?
+
+  head        User?         @relation("TeamLead", fields: [head_id], references: [id])
+  categories  Category[]    @relation("DefaultCategoryTeam")
+  members     TeamMember[]
+  complaints  Complaint[]
+
+  @@map("maintenance_teams")
+}
+
+model TeamMember {
+  id           String          @id @default(uuid())
+  team_id      String
+  user_id      String
+  active       Boolean         @default(true)
+  current_load Int             @default(0)
+
+  team         MaintenanceTeam @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user         User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([team_id, user_id])
+  @@map("team_members")
+}
+
+model Complaint {
+  id               String            @id @default(uuid())
+  student_id       String
+  room_id          String
+  hostel_id        String
+  category_id      String
+  subcategory_id   String
+  title            String
+  description      String
+  severity         Severity          @default(MEDIUM)
+  priority_score   Float             @default(0.0)
+  status           ComplaintStatus   @default(SUBMITTED)
+  ai_category      String?
+  ai_confidence    Float?
+  ai_summary       String?
+  duplicate_of_id  String?
+  assigned_team_id String?
+  assigned_to      String?
+  sla_due_at       DateTime?
+  escalation_level Int               @default(0)
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+  resolved_at      DateTime?
+  closed_at        DateTime?
+
+  student          User              @relation("StudentComplaints", fields: [student_id], references: [id])
+  room             Room              @relation(fields: [room_id], references: [id])
+  hostel           Hostel            @relation(fields: [hostel_id], references: [id])
+  category         Category          @relation(fields: [category_id], references: [id])
+  subcategory      Subcategory       @relation(fields: [subcategory_id], references: [id])
+  duplicate_of     Complaint?        @relation("ComplaintDuplicates", fields: [duplicate_of_id], references: [id])
+  duplicates       Complaint[]       @relation("ComplaintDuplicates")
+  assignedTeam     MaintenanceTeam?  @relation(fields: [assigned_team_id], references: [id])
+  assignedUser     User?             @relation("AssignedComplaints", fields: [assigned_to], references: [id])
+  attachments      Attachment[]
+  events           ComplaintEvent[]
+  feedbacks        Feedback[]
+  notifications    Notification[]
+
+  @@map("complaints")
+}
+
+model Attachment {
+  id           String    @id @default(uuid())
+  complaint_id String
+  url          String
+  mime_type    String
+  size         Int
+  created_at   DateTime  @default(now())
+
+  complaint    Complaint @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model ComplaintEvent {
+  id           String          @id @default(uuid())
+  complaint_id String
+  actor_id     String?
+  action       ActionType
+  from_status  ComplaintStatus?
+  to_status    ComplaintStatus?
+  note         String?
+  metadata     Json?
+  created_at   DateTime        @default(now())
+
+  complaint    Complaint       @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  actor        User?           @relation(fields: [actor_id], references: [id])
+
+  @@map("complaint_events")
+}
+
+model Feedback {
+  id           String    @id @default(uuid())
+  complaint_id String
+  rating       Int
+  comment      String?
+  created_at   DateTime  @default(now())
+
+  complaint    Complaint @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+
+  @@map("feedback")
+}
+
+model Notification {
+  id           String     @id @default(uuid())
+  user_id      String
+  complaint_id String?
+  message      String
+  read         Boolean    @default(false)
+  created_at   DateTime   @default(now())
+
+  user         User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  complaint    Complaint? @relation(fields: [complaint_id], references: [id])
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actor_id   String?
+  action     String
+  entity     String
+  entity_id  String
+  payload    Json?
+  created_at DateTime @default(now())
+
+  actor      User?    @relation(fields: [actor_id], references: [id])
+
+  @@map("audit_logs")
+}
