@@ -416,6 +416,45 @@ function getMockState() {
   };
 }
 
+/**
+ * Read-Time SLA Watchdog & Escalation Engine:
+ * Evaluates target SLA deadlines dynamically when the admin dashboard, analytics,
+ * or complaints load. Overdue complaints are automatically tagged and escalated
+ * without relying on sub-daily cron schedules.
+ */
+function checkAndEscalateComplaintsAtReadTime(complaints: Complaint[]): boolean {
+  const now = Date.now();
+  let modified = false;
+
+  for (const c of complaints) {
+    if (c.status !== 'RESOLVED' && c.status !== 'CLOSED' && c.sla_due_at) {
+      const dueTime = new Date(c.sla_due_at).getTime();
+      if (now > dueTime) {
+        const overdueHours = (now - dueTime) / (1000 * 60 * 60);
+        let targetLevel = 1;
+        if (overdueHours > 24) targetLevel = 3;
+        else if (overdueHours > 6) targetLevel = 2;
+
+        if ((c.escalation_level || 0) < targetLevel) {
+          c.escalation_level = targetLevel;
+          c.events = c.events || [];
+          c.events.push({
+            id: `ev-esc-${Date.now()}-${c.id}`,
+            action: 'ESCALATED',
+            from_status: c.status,
+            to_status: c.status,
+            note: `Target resolution SLA deadline breached by ${Math.max(1, Math.round(overdueHours))}h. Auto-escalated to Level ${targetLevel}.`,
+            created_at: new Date().toISOString(),
+          });
+          modified = true;
+        }
+      }
+    }
+  }
+
+  return modified;
+}
+
 // ---------------------------------------------------------------------------
 // Client Request Dispatcher
 // ---------------------------------------------------------------------------
@@ -480,6 +519,13 @@ async function handleMockRequest<T>(endpoint: string, options: RequestInit = {})
   // Current logged in user from mock
   const token = localStorage.getItem('vynk_access_token');
   const currentUser = state.users.find((u) => u.id === token) || state.users[0];
+
+  // Trigger read-time SLA & escalation evaluation whenever complaints, details, or dashboards are accessed
+  if (path.startsWith('/complaints') || path.includes('/analytics') || path === '/insights') {
+    if (checkAndEscalateComplaintsAtReadTime(state.complaints)) {
+      setStored('complaints', state.complaints);
+    }
+  }
 
   // 1. Auth routes
   if (path === '/auth/me') {
