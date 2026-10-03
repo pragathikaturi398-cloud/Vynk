@@ -1,11 +1,4 @@
-node_modules/
-dist/
-build/
+node_modules
+dist
 .env
 .env.local
-*.log
-uploads/
-scratch/
-.DS_Store
-coverage/
-prisma/*.db

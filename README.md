@@ -1,68 +1,56 @@
-# Smart Hostel Complaint Management Platform
+# Vynk: Smart Hostel Complaint Management Platform
 
-> A smart and efficient platform for reporting, prioritizing, tracking, and resolving hostel complaints.
+> A smart and efficient platform for reporting, prioritizing, tracking, and resolving hostel complaints with automated AI triage and SLA tracking.
 
-## 🚀 Live Prototype
+## 🚀 Deployment on Vercel
 
-👉 [Open the Working Prototype](YOUR-PROTOTYPE-LINK)
+This application is configured as a standard Vite + React SPA with zero external runtime database requirements and a Vercel serverless function for server-side Gemini API calls.
 
-## 📌 Overview
+### Build & Deploy Settings
+- **Framework Preset**: Vite
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Install Command**: `npm install`
+- **Node.js Version**: 20.x or 22.x
 
-The Smart Hostel Complaint Management Platform simplifies hostel complaint management by providing students with an easy way to report issues and giving administrators a centralized system to monitor, prioritize, and resolve complaints.
+### Environment Variables
+Configure the following variable in your Vercel Project Settings > Environment Variables:
+- `GEMINI_API_KEY`: Your Google Gemini API Key (enables live AI complaint triage, embeddings, and recurring issue insights).
 
-The platform aims to reduce delays, improve transparency, and help hostel management identify recurring issues.
+## 🛠️ Project Structure
 
-## ✨ Key Features
+- `index.html` - HTML5 application entry point
+- `src/` - React TypeScript source code
+  - `src/main.tsx` - App entry point
+  - `src/App.tsx` - React router & protected role routing
+  - `src/pages/` - Role-based views: Student Dashboard, Maintenance Staff Queue, Warden & Admin Dashboard, Super Admin Portal
+  - `src/components/` - Timeline, StatusBadge, SeverityBadge, ServiceResolutionHub, ComplaintTracker
+  - `src/context/` - AuthContext with role switcher, SocketContext
+  - `src/api/client.ts` - Client API service with offline/demo state and Gemini endpoint routing
+- `api/gemini.ts` - Vercel serverless function handling server-side Gemini API requests
+- `vercel.json` - SPA rewrites ensuring deep links and browser refreshes work seamlessly
+- `vite.config.ts` - Vite configuration with local dev server and API mock routing
 
-- 📝 **Easy Complaint Submission**  
-  Students can submit complaints with relevant details and supporting evidence.
+## 👥 Demo Accounts
 
-- 🤖 **AI-Assisted Complaint Classification**  
-  AI helps identify and categorize complaints for easier management.
+The platform includes pre-configured demo credentials:
 
-- ⚡ **Impact-Aware Prioritization**  
-  Complaints can be prioritized based on factors such as severity, recurrence, and waiting time.
+| Role | Email | Password |
+|---|---|---|
+| **Student** | `student1@vynk.local` | `password123` |
+| **Maintenance** | `tech.plumbing@vynk.local` | `password123` |
+| **Warden** | `warden.boys@vynk.local` | `password123` |
+| **Super Admin** | `admin@vynk.local` | `password123` |
 
-- 📷 **AI-Assisted Visual Evidence**  
-  Complaint images can provide additional evidence to support classification and prioritization.
+## 💻 Local Development
 
-- 📊 **Complaint Tracking**  
-  Students can track the progress of their submitted complaints.
+```bash
+# Install dependencies
+npm install
 
-- 🛠️ **Admin Management**  
-  Administrators can view, manage, assign, and update complaints.
+# Start development server
+npm run dev
 
-- 🔄 **Resolution Tracking**  
-  Complaint status can be updated throughout the resolution process.
-
-## 🎯 Problem We Address
-
-Hostel complaints are often managed through informal channels or disconnected systems, which can lead to:
-
-- Delayed responses
-- Difficulty prioritizing urgent issues
-- Lack of complaint visibility
-- Repeated complaints for the same issue
-- Limited tracking of resolution progress
-
-Our platform brings these processes together into a centralized digital system.
-
-## 💡 USP
-
-### Impact-Aware Prioritization
-AI-assisted prioritization helps identify complaints that require greater attention based on severity, recurrence, and waiting time.
-
-### AI-Assisted Visual Evidence
-Complaint photos provide additional context that can support smarter classification and prioritization.
-
-## 🏗️ System Architecture
-
-Student / Admin
-      ↓
-Frontend / UI
-      ↓
-Backend / API
-      ↓
-AI Processing
-      ↓
-Database
+# Build for production
+npm run build
+```

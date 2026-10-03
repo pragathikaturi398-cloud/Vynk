@@ -1,0 +1,8 @@
+{
+  "name": "Vynk - Smart Hostel Complaint Management",
+  "description": "Smart hostel complaint management and resolution platform with automated triage, severity scoring, and SLA tracking.",
+  "requestFramePermissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
