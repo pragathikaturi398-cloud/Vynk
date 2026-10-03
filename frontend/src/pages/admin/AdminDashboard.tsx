@@ -76,7 +76,7 @@ export const AdminDashboard: React.FC = () => {
         setInsights((prev) => [res.data, ...prev]);
       }
     } catch (e) {
-      alert('Failed to generate AI insight');
+      alert('Failed to generate operational insight');
     } finally {
       setGeneratingInsight(false);
     }
@@ -100,7 +100,7 @@ export const AdminDashboard: React.FC = () => {
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Hostel Operations & AI Triage
+            Hostel Operations & Automated Triage
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
             Monitor real-time repair requests, SLA compliance, recurring clusters, and automated routing.
@@ -127,7 +127,7 @@ export const AdminDashboard: React.FC = () => {
         <div className="absolute right-0 top-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      {/* AI Insights Highlight Card */}
+      {/* Insights Highlight Card */}
       <div className="bg-gradient-to-r from-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2.5">
@@ -135,7 +135,7 @@ export const AdminDashboard: React.FC = () => {
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-white">Gemini AI Operational Insights</h3>
+              <h3 className="font-bold text-base text-white">Smart Operational Insights</h3>
               <p className="text-[11px] text-slate-400">Automated SQL pattern clustering with plain-language recommendations</p>
             </div>
           </div>
@@ -146,7 +146,7 @@ export const AdminDashboard: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-xs font-semibold transition-all disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${generatingInsight ? 'animate-spin' : ''}`} />
-            <span>{generatingInsight ? 'Analyzing Clusters...' : 'Refresh AI Insight'}</span>
+            <span>{generatingInsight ? 'Analyzing Clusters...' : 'Refresh Insights'}</span>
           </button>
         </div>
 
@@ -157,7 +157,7 @@ export const AdminDashboard: React.FC = () => {
             </p>
           ) : (
             <p className="text-slate-400">
-              Analyzing complaint history... Click "Refresh AI Insight" to scan 30-day recurring complaint clusters across all hostels and rooms.
+              Analyzing complaint history... Click "Refresh Insights" to scan 30-day recurring complaint clusters across all hostels and rooms.
             </p>
           )}
         </div>
@@ -265,7 +265,7 @@ export const AdminDashboard: React.FC = () => {
       {/* Recent Activity Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-base text-white">Recent Complaints & AI Classification</h3>
+          <h3 className="font-bold text-base text-white">Recent Complaints & Triage</h3>
           <Link
             to="/admin/complaints"
             className="text-xs text-emerald-400 hover:underline flex items-center gap-1"
@@ -280,7 +280,7 @@ export const AdminDashboard: React.FC = () => {
             <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
               <tr>
                 <th className="py-3 px-4">ID</th>
-                <th className="py-3 px-4">Title & AI Summary</th>
+                <th className="py-3 px-4">Title & Summary</th>
                 <th className="py-3 px-4">Room</th>
                 <th className="py-3 px-4">Category</th>
                 <th className="py-3 px-4">Severity</th>

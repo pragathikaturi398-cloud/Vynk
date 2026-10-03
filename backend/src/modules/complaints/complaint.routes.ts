@@ -30,11 +30,18 @@ router.patch(
   ComplaintController.updateStatus
 );
 
-// Reassign / Override AI triage (Warden, Super Admin)
+// Reassign / Dispatch Worker (Maintenance, Warden, Super Admin)
 router.patch(
   '/:id/assign',
-  requireRole(Role.WARDEN, Role.SUPERADMIN),
+  requireRole(Role.MAINTENANCE, Role.WARDEN, Role.SUPERADMIN),
   ComplaintController.assignComplaint
+);
+
+// Auto-create / generate category based on problem text (Maintenance, Warden, Super Admin)
+router.post(
+  '/:id/auto-category',
+  requireRole(Role.MAINTENANCE, Role.WARDEN, Role.SUPERADMIN),
+  ComplaintController.autoCategorizeComplaint
 );
 
 // Student feedback rating

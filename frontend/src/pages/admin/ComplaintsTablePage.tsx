@@ -126,7 +126,7 @@ export const ComplaintsTablePage: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by keywords, room, or AI summary..."
+            placeholder="Search by keywords, room, or summary..."
             className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
           />
         </div>
@@ -139,7 +139,7 @@ export const ComplaintsTablePage: React.FC = () => {
         >
           <option value="">All Statuses</option>
           <option value="SUBMITTED">Submitted</option>
-          <option value="AI_PROCESSED">AI Triaged</option>
+          <option value="AI_PROCESSED">Triaged</option>
           <option value="NEEDS_REVIEW">Needs Review</option>
           <option value="ASSIGNED">Assigned</option>
           <option value="IN_PROGRESS">In Progress</option>

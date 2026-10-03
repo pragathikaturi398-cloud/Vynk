@@ -35,7 +35,7 @@ export const AuditPage: React.FC = () => {
           </h1>
         </div>
         <p className="text-xs text-slate-400">
-          Append-only cryptographic record of all status changes, AI classifications, reassignments, and escalations.
+          Append-only cryptographic record of all status changes, smart classifications, reassignments, and escalations.
         </p>
       </div>
 
@@ -91,7 +91,7 @@ export const AuditPage: React.FC = () => {
                       )}
                     </td>
                     <td className="py-3 px-4 text-slate-300">
-                      {log.actor ? `${log.actor.name} (${log.actor.role})` : 'System / AI Engine'}
+                      {log.actor ? `${log.actor.name} (${log.actor.role})` : 'System Engine'}
                     </td>
                     <td className="py-3 px-4 text-slate-400 max-w-xs truncate">
                       {log.note || '-'}

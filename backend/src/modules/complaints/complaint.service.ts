@@ -5,6 +5,7 @@ import { WorkflowService } from '../workflow/workflow.service';
 import { socketEvents } from '../../config/socket';
 import { cosineSimilarity } from '../../utils/vector';
 import { ENV } from '../../config/env';
+import bcrypt from 'bcryptjs';
 
 export class ComplaintService {
   /**
@@ -156,7 +157,7 @@ export class ComplaintService {
       include: { subcategories: true },
     });
 
-    const matchedCategory = allCategories.find((c) =>
+    let matchedCategory = allCategories.find((c) =>
       c.name.toLowerCase().includes(aiResult.category.toLowerCase()) ||
       aiResult.category.toLowerCase().includes(c.name.toLowerCase())
     );
@@ -172,6 +173,31 @@ export class ComplaintService {
         resolvedSubcategoryId = matchedSub.id;
       } else if (matchedCategory.subcategories.length > 0) {
         resolvedSubcategoryId = matchedCategory.subcategories[0].id;
+      }
+    } else if (aiResult.category) {
+      // Auto-create category in DB based on the problem if it does not belong to available categories
+      try {
+        const subName = aiResult.subcategory?.trim() || `${aiResult.category} Maintenance`;
+        const newCat = await prisma.category.create({
+          data: {
+            name: aiResult.category.trim(),
+            default_sla_hours: 24,
+            subcategories: {
+              create: [
+                {
+                  name: subName,
+                  base_severity: aiResult.severity || Severity.MEDIUM,
+                },
+              ],
+            },
+          },
+          include: { subcategories: true },
+        });
+        resolvedCategoryId = newCat.id;
+        resolvedSubcategoryId = newCat.subcategories[0].id;
+        console.log(`[Auto-Category] Created new category "${newCat.name}" with subcategory "${subName}" for complaint #${complaint.id}`);
+      } catch (catErr) {
+        console.warn(`[Auto-Category Creation Error]:`, catErr);
       }
     }
 
@@ -386,6 +412,7 @@ export class ComplaintService {
     userRole?: Role;
     userId?: string;
     userHostelId?: string;
+    scope?: string;
   }) {
     const where: any = {};
 
@@ -395,10 +422,14 @@ export class ComplaintService {
     } else if (filter.userRole === Role.WARDEN && filter.userHostelId) {
       where.hostel_id = filter.userHostelId;
     } else if (filter.userRole === Role.MAINTENANCE && filter.userId) {
-      where.OR = [
-        { assigned_to: filter.userId },
-        { assignedTeam: { members: { some: { user_id: filter.userId } } } },
-      ];
+      // If scope is 'all', allow maintenance staff to view all issues across categories
+      if (filter.scope !== 'all') {
+        where.OR = [
+          { assigned_to: filter.userId },
+          { assignedTeam: { members: { some: { user_id: filter.userId } } } },
+          { assignedTeam: { head_id: filter.userId } },
+        ];
+      }
     }
 
     // 2. Query Filters
@@ -427,8 +458,8 @@ export class ComplaintService {
     return prisma.complaint.findMany({
       where,
       include: {
-        student: { select: { id: true, name: true, email: true } },
-        assignedUser: { select: { id: true, name: true } },
+        student: { select: { id: true, name: true, email: true, phone: true } },
+        assignedUser: { select: { id: true, name: true, email: true, phone: true, role: true } },
         assignedTeam: { select: { id: true, name: true } },
         category: true,
         subcategory: true,
@@ -509,24 +540,126 @@ export class ComplaintService {
       throw { status: 404, message: 'Complaint not found' };
     }
 
+    // After assigning the required person, do not show duplicate linked in live audit
+    if (complaint.assigned_to || complaint.assignedUser) {
+      complaint.events = complaint.events.filter(
+        (e) => !e.action.includes('DUPLICATE') && !e.note?.toLowerCase().includes('duplicate')
+      );
+    }
+
     return complaint;
   }
 
   /**
-   * Manual assignment or category/priority override
+   * Manual assignment or worker details assignment (Name, Department, Contact Number, Email)
    */
   static async assignComplaint(params: {
     complaintId: string;
     actorId: string;
     teamId?: string;
     assignedTo?: string;
+    worker?: {
+      name: string;
+      department: string;
+      phone?: string;
+      email: string;
+    };
     severity?: Severity;
     categoryId?: string;
     note?: string;
   }) {
+    let assignedUserId = params.assignedTo;
+    let assignedTeamId = params.teamId;
+
+    // If maintenance supplied worker details directly:
+    if (params.worker) {
+      const { name, department, phone, email } = params.worker;
+      if (!name || !email) {
+        throw { status: 400, message: 'Worker name and email are required.' };
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      let workerUser = await prisma.user.findUnique({
+        where: { email: cleanEmail },
+      });
+
+      if (workerUser) {
+        workerUser = await prisma.user.update({
+          where: { id: workerUser.id },
+          data: {
+            name: name.trim(),
+            phone: phone ? phone.trim() : workerUser.phone,
+            role: workerUser.role === Role.STUDENT ? Role.MAINTENANCE : workerUser.role,
+          },
+        });
+      } else {
+        const defaultHash = await bcrypt.hash('password123', 10);
+        workerUser = await prisma.user.create({
+          data: {
+            name: name.trim(),
+            email: cleanEmail,
+            phone: phone ? phone.trim() : null,
+            role: Role.MAINTENANCE,
+            password_hash: defaultHash,
+          },
+        });
+      }
+      assignedUserId = workerUser.id;
+
+      // Ensure Team exists for this department
+      const deptName = (department || 'General Maintenance').trim();
+      let team = await prisma.team.findFirst({
+        where: { name: { contains: deptName } },
+      });
+
+      if (!team) {
+        try {
+          team = await prisma.team.create({
+            data: {
+              name: `${deptName} Maintenance Team`,
+              category_ids: '[]',
+              head_id: workerUser.id,
+            },
+          });
+        } catch (e) {
+          team = await prisma.team.findFirst({
+            where: { name: `${deptName} Maintenance Team` },
+          });
+        }
+      }
+
+      if (team) {
+        assignedTeamId = team.id;
+        const existingMember = await prisma.teamMember.findUnique({
+          where: {
+            team_id_user_id: {
+              team_id: team.id,
+              user_id: workerUser.id,
+            },
+          },
+        });
+
+        if (!existingMember) {
+          await prisma.teamMember.create({
+            data: {
+              team_id: team.id,
+              user_id: workerUser.id,
+              active: true,
+              current_load: 1,
+            },
+          });
+        } else {
+          await prisma.teamMember.update({
+            where: { id: existingMember.id },
+            data: { current_load: { increment: 1 } },
+          });
+        }
+      }
+    }
+
     const updateData: any = {};
-    if (params.teamId) updateData.assigned_team_id = params.teamId;
-    if (params.assignedTo) updateData.assigned_to = params.assignedTo;
+    if (assignedTeamId) updateData.assigned_team_id = assignedTeamId;
+    if (assignedUserId) updateData.assigned_to = assignedUserId;
     if (params.severity) updateData.severity = params.severity;
     if (params.categoryId) updateData.category_id = params.categoryId;
 
@@ -536,22 +669,148 @@ export class ComplaintService {
       where: { id: params.complaintId },
       data: updateData,
       include: {
-        assignedUser: { select: { id: true, name: true } },
+        student: { select: { id: true, name: true, email: true, phone: true } },
+        assignedUser: { select: { id: true, name: true, email: true, phone: true, role: true } },
         assignedTeam: { select: { id: true, name: true } },
-        student: { select: { id: true, name: true } },
+        category: true,
+        subcategory: true,
+        room: {
+          include: {
+            floor: {
+              include: { block: { include: { hostel: true } } },
+            },
+          },
+        },
+        attachments: true,
       },
     });
+
+    const noteText = params.worker
+      ? `Assigned to ${params.worker.name} (Contact: ${params.worker.phone || 'On file'}, Dept: ${params.worker.department}). ${params.note || ''}`
+      : params.note || 'Complaint assigned to technician';
 
     await WorkflowService.recordEvent({
       complaintId: params.complaintId,
       actorId: params.actorId,
-      action: 'REASSIGNED_OR_OVERRIDDEN',
-      fromStatus: updated.status,
+      action: 'WORKER_ASSIGNED',
+      fromStatus: updated.status as ComplaintStatus,
       toStatus: ComplaintStatus.ASSIGNED,
-      note: params.note || 'Complaint assignment / parameters manually updated by admin',
+      note: noteText.trim(),
     });
 
+    if (assignedUserId) {
+      const notif = await prisma.notification.create({
+        data: {
+          user_id: assignedUserId,
+          complaint_id: updated.id,
+          message: `New assignment: "${updated.title}" at Room ${updated.room?.room_no}`,
+        },
+      });
+      socketEvents.notificationNew(assignedUserId, notif);
+    }
+
     socketEvents.complaintAssigned(updated);
+    socketEvents.complaintUpdated(updated);
+    return updated;
+  }
+
+  /**
+   * Auto-create or associate category based on problem description
+   */
+  static async autoCategorizeComplaint(complaintId: string, actorId?: string) {
+    const complaint = await prisma.complaint.findUnique({
+      where: { id: complaintId },
+      include: { category: true, subcategory: true },
+    });
+
+    if (!complaint) {
+      throw { status: 404, message: 'Complaint not found' };
+    }
+
+    const aiResult = await AIService.classifyComplaint(
+      complaint.title,
+      complaint.description
+    );
+
+    const allCategories = await prisma.category.findMany({
+      include: { subcategories: true },
+    });
+
+    let matchedCategory = allCategories.find((c) =>
+      c.name.toLowerCase().includes(aiResult.category.toLowerCase()) ||
+      aiResult.category.toLowerCase().includes(c.name.toLowerCase())
+    );
+
+    let resolvedCategoryId = complaint.category_id;
+    let resolvedSubcategoryId = complaint.subcategory_id;
+
+    if (!matchedCategory && aiResult.category) {
+      const subName = aiResult.subcategory?.trim() || `${aiResult.category} Maintenance`;
+      matchedCategory = await prisma.category.create({
+        data: {
+          name: aiResult.category.trim(),
+          default_sla_hours: 24,
+          subcategories: {
+            create: [
+              {
+                name: subName,
+                base_severity: aiResult.severity || Severity.MEDIUM,
+              },
+            ],
+          },
+        },
+        include: { subcategories: true },
+      });
+      resolvedCategoryId = matchedCategory.id;
+      resolvedSubcategoryId = matchedCategory.subcategories[0].id;
+    } else if (matchedCategory) {
+      resolvedCategoryId = matchedCategory.id;
+      const matchedSub = matchedCategory.subcategories.find(
+        (s) =>
+          s.name.toLowerCase().includes(aiResult.subcategory.toLowerCase()) ||
+          aiResult.subcategory.toLowerCase().includes(s.name.toLowerCase())
+      );
+      if (matchedSub) {
+        resolvedSubcategoryId = matchedSub.id;
+      } else if (matchedCategory.subcategories.length > 0) {
+        resolvedSubcategoryId = matchedCategory.subcategories[0].id;
+      }
+    }
+
+    const updated = await prisma.complaint.update({
+      where: { id: complaintId },
+      data: {
+        category_id: resolvedCategoryId,
+        subcategory_id: resolvedSubcategoryId,
+        severity: aiResult.severity,
+      },
+      include: {
+        student: { select: { id: true, name: true, email: true, phone: true } },
+        assignedUser: { select: { id: true, name: true, email: true, phone: true, role: true } },
+        assignedTeam: { select: { id: true, name: true } },
+        category: true,
+        subcategory: true,
+        room: {
+          include: {
+            floor: {
+              include: { block: { include: { hostel: true } } },
+            },
+          },
+        },
+        attachments: true,
+      },
+    });
+
+    await WorkflowService.recordEvent({
+      complaintId,
+      actorId: actorId || complaint.student_id,
+      action: 'CATEGORY_AUTO_ASSIGNED',
+      fromStatus: complaint.status as ComplaintStatus,
+      toStatus: complaint.status as ComplaintStatus,
+      note: `Auto-categorized problem to: "${updated.category.name}" / "${updated.subcategory.name}" (${updated.severity})`,
+    });
+
+    socketEvents.complaintUpdated(updated);
     return updated;
   }
 
@@ -609,14 +868,14 @@ export class ComplaintService {
       throw { status: 403, message: 'Only the student who submitted can reopen this complaint' };
     }
 
-    // Check 48h limit from resolution/closure
+    // Allow reopening within 7 days (168 hours) of resolution/closure
     const resolvedTime = complaint.resolved_at || complaint.closed_at || complaint.created_at;
     const diffHours = (Date.now() - new Date(resolvedTime).getTime()) / (1000 * 3600);
 
-    if (diffHours > 48) {
+    if (diffHours > 168) {
       throw {
         status: 400,
-        message: 'Complaints can only be reopened within 48 hours of resolution. Please submit a new complaint.',
+        message: 'Complaints can only be reopened within 7 days of resolution. Please submit a new complaint.',
       };
     }
 

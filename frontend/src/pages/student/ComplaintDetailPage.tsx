@@ -4,8 +4,10 @@ import { api } from '../../api/client';
 import { Complaint } from '../../types';
 import { StatusBadge } from '../../components/StatusBadge';
 import { SeverityBadge } from '../../components/SeverityBadge';
-import { Timeline } from '../../components/Timeline';
+import { ServiceResolutionHub } from '../../components/ServiceResolutionHub';
+import { ComplaintTracker } from '../../components/ComplaintTracker';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import {
   ArrowLeft,
   Clock,
@@ -17,12 +19,14 @@ import {
   User,
   Wrench,
   Paperclip,
+  Phone,
 } from 'lucide-react';
 
 export const ComplaintDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { socket } = useSocket();
 
   const [complaint, setComplaint] = useState<Complaint | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +58,33 @@ export const ComplaintDetailPage: React.FC = () => {
   useEffect(() => {
     fetchComplaint();
   }, [id]);
+
+  // Live Socket.IO Updates
+  useEffect(() => {
+    if (!socket || !id) return;
+
+    const handleUpdate = (updated: Complaint) => {
+      if (updated && updated.id === id) {
+        setComplaint((prev) => (prev ? { ...prev, ...updated } : updated));
+        fetchComplaint();
+      }
+    };
+
+    const handleAssigned = (assigned: Complaint) => {
+      if (assigned && assigned.id === id) {
+        setComplaint((prev) => (prev ? { ...prev, ...assigned } : assigned));
+        fetchComplaint();
+      }
+    };
+
+    socket.on('complaint:updated', handleUpdate);
+    socket.on('complaint:assigned', handleAssigned);
+
+    return () => {
+      socket.off('complaint:updated', handleUpdate);
+      socket.off('complaint:assigned', handleAssigned);
+    };
+  }, [socket, id]);
 
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,8 +156,8 @@ export const ComplaintDetailPage: React.FC = () => {
         Back to Dashboard
       </button>
 
-      {/* Duplicate Alert Banner if duplicate */}
-      {complaint.duplicate_of_id && (
+      {/* Duplicate Alert Banner if duplicate and not yet assigned to required person */}
+      {complaint.duplicate_of_id && !complaint.assigned_to && !complaint.assignedUser && (
         <div className="mb-6 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="text-xs text-amber-200">
@@ -137,6 +168,9 @@ export const ComplaintDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Live 3-Stage Complaint Progress Tracker */}
+      <ComplaintTracker complaint={complaint} variant="full" />
 
       {/* Main Header Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6">
@@ -187,11 +221,22 @@ export const ComplaintDetailPage: React.FC = () => {
             </span>
           </div>
           <div>
-            <span className="text-slate-500 block mb-1">Assigned Maintenance</span>
-            <span className="font-semibold text-slate-200 flex items-center gap-1">
-              <Wrench className="w-3.5 h-3.5 text-amber-400" />
-              {complaint.assignedUser?.name || complaint.assignedTeam?.name || 'In Assignment Queue'}
-            </span>
+            <span className="text-slate-500 block mb-1">Assigned Specialist & Worker Contact</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-slate-200 flex items-center gap-1">
+                <Wrench className="w-3.5 h-3.5 text-amber-400" />
+                {complaint.assignedUser?.name || complaint.assignedTeam?.name || 'In Assignment Queue'}
+              </span>
+              {complaint.assignedUser?.phone && (
+                <a
+                  href={`tel:${complaint.assignedUser.phone}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono font-bold hover:bg-emerald-500/30 transition-colors"
+                >
+                  <Phone className="w-3 h-3" />
+                  <span>{complaint.assignedUser.phone}</span>
+                </a>
+              )}
+            </div>
           </div>
         </div>
 
@@ -215,18 +260,18 @@ export const ComplaintDetailPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: AI Triage & Feedback & Attachments */}
+        {/* Left Column: Diagnostics & Feedback & Attachments */}
         <div className="space-y-6">
-          {/* AI Intelligence Card */}
+          {/* Smart Diagnostics Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-indigo-400" />
-              <h3 className="font-bold text-sm text-white">Gemini AI Analysis</h3>
+              <h3 className="font-bold text-sm text-white">Smart Diagnostics & Triage</h3>
             </div>
             <div className="space-y-2.5 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-400">Detected Category:</span>
+                <span className="text-slate-400">Assessed Category:</span>
                 <span className="font-semibold text-slate-200">{complaint.ai_category || complaint.category.name}</span>
               </div>
               <div className="flex justify-between">
@@ -354,15 +399,12 @@ export const ComplaintDetailPage: React.FC = () => {
           )}
         </div>
 
-        {/* Right Column: Live Audit Timeline */}
+        {/* Right Column: Service Resolution & Maintenance Hub */}
         <div className="lg:col-span-2">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <h3 className="font-bold text-base text-white mb-4 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-emerald-400" />
-              Live Audit Timeline & Status Machine
-            </h3>
-            <Timeline events={complaint.events || []} />
-          </div>
+          <ServiceResolutionHub
+            complaint={complaint}
+            onReopen={() => setShowReopenModal(true)}
+          />
         </div>
       </div>
 

@@ -95,7 +95,7 @@ export class WorkflowService {
       throw { status: 404, message: 'Complaint not found' };
     }
 
-    if (!this.isValidTransition(complaint.status, params.newStatus)) {
+    if (!this.isValidTransition(complaint.status as ComplaintStatus, params.newStatus)) {
       throw {
         status: 400,
         message: `Invalid status transition from ${complaint.status} to ${params.newStatus}`,
@@ -132,7 +132,7 @@ export class WorkflowService {
       complaintId: params.complaintId,
       actorId: params.actorId,
       action: 'STATUS_CHANGE',
-      fromStatus: complaint.status,
+      fromStatus: complaint.status as ComplaintStatus,
       toStatus: params.newStatus,
       note: params.note || `Status updated from ${complaint.status} to ${params.newStatus}`,
     });

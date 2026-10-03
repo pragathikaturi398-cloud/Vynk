@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { api } from '../../api/client';
 import { Complaint } from '../../types';
 import { StatusBadge } from '../../components/StatusBadge';
 import { SeverityBadge } from '../../components/SeverityBadge';
+import { ComplaintTracker } from '../../components/ComplaintTracker';
 import { NewComplaintModal } from './NewComplaintModal';
 import { Link } from 'react-router-dom';
 import {
@@ -15,10 +17,12 @@ import {
   Home,
   ChevronRight,
   Filter,
+  RotateCcw,
 } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { socket } = useSocket();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,6 +44,31 @@ export const StudentDashboard: React.FC = () => {
   useEffect(() => {
     fetchMyComplaints();
   }, [user]);
+
+  // Live Socket.IO updates for active complaints
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleUpdate = (updated: Complaint) => {
+      setComplaints((prev) =>
+        prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+      );
+    };
+
+    const handleRefresh = () => {
+      fetchMyComplaints();
+    };
+
+    socket.on('complaint:updated', handleUpdate);
+    socket.on('complaint:assigned', handleUpdate);
+    socket.on('complaint:created', handleRefresh);
+
+    return () => {
+      socket.off('complaint:updated', handleUpdate);
+      socket.off('complaint:assigned', handleUpdate);
+      socket.off('complaint:created', handleRefresh);
+    };
+  }, [socket]);
 
   const activeCount = complaints.filter(
     (c) => c.status !== 'RESOLVED' && c.status !== 'CLOSED'
@@ -73,7 +102,7 @@ export const StudentDashboard: React.FC = () => {
             Hello, {user?.name.split(' ')[0]} 👋
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Report maintenance issues with automated AI triage, real-time tracking, and instant escalation.
+            Report maintenance issues with automated smart triage, real-time tracking, and instant escalation.
           </p>
         </div>
 
@@ -186,7 +215,7 @@ export const StudentDashboard: React.FC = () => {
                   <span className="text-xs font-mono text-slate-500">#{c.id.slice(0, 8)}</span>
                   <StatusBadge status={c.status} />
                   <SeverityBadge severity={c.severity} />
-                  {c.duplicate_of_id && (
+                  {c.duplicate_of_id && !c.assigned_to && !c.assignedUser && (
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                       Duplicate Grouped
                     </span>
@@ -207,7 +236,12 @@ export const StudentDashboard: React.FC = () => {
                 {c.ai_summary || c.description}
               </p>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-slate-800/60 text-xs text-slate-400">
+              {/* 3-Stage Progress Tracker with Ticks */}
+              <div className="mt-3 px-3.5 py-1 bg-slate-950/50 rounded-xl border border-slate-800/80">
+                <ComplaintTracker complaint={c} variant="compact" />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-800/60 text-xs text-slate-400">
                 <div className="flex items-center gap-4">
                   <span>Category: <strong className="text-slate-200">{c.category.name}</strong></span>
                   <span>Room: <strong className="text-slate-200">{c.room.room_no}</strong></span>
@@ -219,6 +253,13 @@ export const StudentDashboard: React.FC = () => {
                     <span>
                       Due: {new Date(c.sla_due_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
+                  </div>
+                )}
+
+                {(c.status === 'RESOLVED' || c.status === 'CLOSED') && (
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-rose-400">
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reopen Available</span>
                   </div>
                 )}
               </div>

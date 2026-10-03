@@ -74,7 +74,7 @@ export const Navbar: React.FC = () => {
             </div>
             <div>
               <span className="font-extrabold text-xl tracking-tight text-white flex items-center gap-1.5">
-                Vynk <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">AI Platform</span>
+                Vynk <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Smart Platform</span>
               </span>
             </div>
           </Link>
@@ -122,7 +122,7 @@ export const Navbar: React.FC = () => {
                     to="/admin/analytics"
                     className="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
                   >
-                    Analytics & AI
+                    Analytics & Reports
                   </Link>
                   <Link
                     to="/admin/audit"
@@ -130,6 +130,16 @@ export const Navbar: React.FC = () => {
                   >
                     Audit Trail
                   </Link>
+
+                  {user.role === 'SUPERADMIN' && (
+                    <Link
+                      to="/super-admin"
+                      className="px-3 py-1.5 rounded-lg text-purple-300 font-bold hover:text-white bg-purple-500/15 hover:bg-purple-500/30 border border-purple-500/40 transition-all flex items-center gap-1.5 ml-1"
+                    >
+                      <Shield className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Super Admin Portal</span>
+                    </Link>
+                  )}
                 </>
               )}
             </nav>
@@ -180,6 +190,7 @@ export const Navbar: React.FC = () => {
                       await switchDemoRole(r);
                       if (r === 'STUDENT') navigate('/student');
                       else if (r === 'MAINTENANCE') navigate('/maintenance');
+                      else if (r === 'SUPERADMIN') navigate('/super-admin');
                       else navigate('/admin');
                     }}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors ${

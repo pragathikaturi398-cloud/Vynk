@@ -3,12 +3,16 @@ import { AuthService } from './auth.service';
 import { AuthenticatedRequest } from '../../middleware/auth';
 
 export class AuthController {
-  static async register(req: Request, res: Response, next: NextFunction) {
+  /**
+   * Student Sign Up (email + password only)
+   */
+  static async studentSignUp(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await AuthService.register(req.body);
+      const { email, password } = req.body;
+      const result = await AuthService.registerStudent(email, password);
       res.status(201).json({
         success: true,
-        message: 'User registered successfully',
+        message: 'Account created successfully. Please complete your profile.',
         data: result,
       });
     } catch (error) {
@@ -16,6 +20,62 @@ export class AuthController {
     }
   }
 
+  /**
+   * Student First Login Profile Onboarding
+   */
+  static async studentOnboarding(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+
+      const { name, studentId, hostelName, roomNumber } = req.body;
+      const result = await AuthService.completeStudentOnboarding(userId, {
+        name,
+        studentId,
+        hostelName,
+        roomNumber,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Student profile setup completed successfully',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Super Admin First-time Password Setup
+   */
+  static async setPassword(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      const result = await AuthService.setFirstTimePassword(userId, currentPassword, newPassword);
+
+      res.status(200).json({
+        success: true,
+        message: 'Password updated successfully',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Universal Login
+   */
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
       const { email, password } = req.body;

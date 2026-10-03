@@ -3,6 +3,8 @@ import { WorkflowService, SLA_BY_SEVERITY } from '../modules/workflow/workflow.s
 import { cosineSimilarity } from '../utils/vector';
 import { generateAccessToken, verifyAccessToken } from '../utils/jwt';
 import { ComplaintStatus, Severity } from '../types';
+import { ComplaintService } from '../modules/complaints/complaint.service';
+import { prisma } from '../config/prisma';
 
 let passed = 0;
 let failed = 0;
@@ -49,6 +51,16 @@ async function runTestSuite() {
   const c4 = AIService.ruleBasedClassifier('Broken door lock latch cannot lock room');
   assert(c4.category === 'Furniture & Carpentry', `Door lock categorized as Furniture & Carpentry`);
   assert(c4.severity === Severity.HIGH, `Broken door lock marked HIGH severity`);
+
+  const c5 = AIService.ruleBasedClassifier('Air conditioner compressor not cooling and making loud rattling noise');
+  assert(c5.category === 'HVAC & Air Conditioning', `AC issue categorized as HVAC & Air Conditioning (got ${c5.category})`);
+
+  const c6 = AIService.ruleBasedClassifier('Washing machine in laundry room stopped spinning');
+  assert(c6.category === 'Appliances & Laundry', `Washing machine categorized as Appliances & Laundry (got ${c6.category})`);
+
+  const c7 = AIService.ruleBasedClassifier('Elevator lift stuck between 2nd and 3rd floor');
+  assert(c7.category === 'Elevator & Lift Services', `Elevator categorized as Elevator & Lift Services (got ${c7.category})`);
+  assert(c7.severity === Severity.CRITICAL, `Stuck elevator marked CRITICAL severity`);
 
   // Test 3: Priority Score Calculation
   console.log('\n▶ Test Group 3: Priority Score Calculation');
@@ -110,6 +122,40 @@ async function runTestSuite() {
   const decoded = verifyAccessToken(token);
   assert(decoded.userId === dummyPayload.userId, 'JWT decodes correct userId');
   assert(decoded.role === dummyPayload.role, 'JWT decodes correct role');
+
+  // Test 7: Worker Assignment with Details & Auto-Category Creation
+  console.log('\n▶ Test Group 7: Worker Assignment with Details & Auto-Category Creation');
+  const testComplaint = await prisma.complaint.findFirst({
+    include: { category: true, subcategory: true },
+  });
+
+  if (testComplaint) {
+    // 1. Assign worker with full details
+    const assignedResult = await ComplaintService.assignComplaint({
+      complaintId: testComplaint.id,
+      actorId: testComplaint.student_id,
+      worker: {
+        name: 'Sunil Verma',
+        department: 'Plumbing',
+        phone: '+91 98765 43210',
+        email: 'sunil.verma.tech@vynk.local',
+      },
+      note: 'Urgent pipe gasket replacement',
+    });
+
+    assert(assignedResult.status === ComplaintStatus.ASSIGNED, 'Status updated to ASSIGNED');
+    assert(assignedResult.assignedUser?.name === 'Sunil Verma', 'Worker name set to Sunil Verma');
+    assert(assignedResult.assignedUser?.phone === '+91 98765 43210', 'Worker contact number correctly saved and returned');
+    assert(assignedResult.assignedUser?.email === 'sunil.verma.tech@vynk.local', 'Worker email correctly saved');
+    assert(!!assignedResult.assignedTeam?.name, 'Assigned team created and linked');
+
+    // 2. Auto-categorize complaint
+    const autoCatResult = await ComplaintService.autoCategorizeComplaint(testComplaint.id);
+    assert(!!autoCatResult.category?.name, `Auto-category assigned category: ${autoCatResult.category?.name}`);
+    assert(!!autoCatResult.subcategory?.name, `Auto-category assigned subcategory: ${autoCatResult.subcategory?.name}`);
+  } else {
+    console.log('  ⚠️ Skipped DB integration test (no complaint found)');
+  }
 
   console.log('\n---------------------------------------------');
   console.log(`Results: ${passed} passed, ${failed} failed`);

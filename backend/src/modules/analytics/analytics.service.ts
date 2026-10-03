@@ -245,9 +245,10 @@ export class AnalyticsService {
     for (const c of resolved) {
       const rawDiff = (new Date(c.resolved_at!).getTime() - new Date(c.created_at).getTime()) / (1000 * 3600);
       const diffHours = Math.max(0.5, Math.abs(rawDiff));
-      if (bySeverity[c.severity]) {
-        bySeverity[c.severity].totalHours += diffHours;
-        bySeverity[c.severity].count += 1;
+      const sevKey = c.severity as Severity;
+      if (bySeverity[sevKey]) {
+        bySeverity[sevKey].totalHours += diffHours;
+        bySeverity[sevKey].count += 1;
       }
     }
 
@@ -282,5 +283,74 @@ export class AnalyticsService {
     });
 
     return insight;
+  }
+
+  static async getSuperAdminMetrics() {
+    const [
+      total,
+      pending,
+      assigned,
+      solved,
+      critical,
+      slaBreached,
+      totalHostels,
+      totalRooms,
+      totalStudents,
+      totalStaff,
+      recentComplaints,
+    ] = await Promise.all([
+      prisma.complaint.count(),
+      prisma.complaint.count({
+        where: {
+          status: { in: [ComplaintStatus.SUBMITTED, ComplaintStatus.AI_PROCESSED, ComplaintStatus.NEEDS_REVIEW] },
+        },
+      }),
+      prisma.complaint.count({
+        where: {
+          status: { in: [ComplaintStatus.ASSIGNED, ComplaintStatus.IN_PROGRESS, ComplaintStatus.ON_HOLD, ComplaintStatus.REOPENED] },
+        },
+      }),
+      prisma.complaint.count({
+        where: {
+          status: { in: [ComplaintStatus.RESOLVED, ComplaintStatus.CLOSED] },
+        },
+      }),
+      prisma.complaint.count({
+        where: { severity: Severity.CRITICAL },
+      }),
+      prisma.complaint.count({
+        where: {
+          status: { notIn: [ComplaintStatus.RESOLVED, ComplaintStatus.CLOSED] },
+          sla_due_at: { lt: new Date() },
+        },
+      }),
+      prisma.hostel.count(),
+      prisma.room.count(),
+      prisma.user.count({ where: { role: Role.STUDENT } }),
+      prisma.user.count({ where: { role: { in: [Role.MAINTENANCE, Role.WARDEN, Role.SUPERADMIN] } } }),
+      prisma.complaint.findMany({
+        take: 5,
+        orderBy: { created_at: 'desc' },
+        include: {
+          student: { select: { name: true } },
+          category: { select: { name: true } },
+          room: { select: { room_no: true } },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      pending,
+      assigned,
+      solved,
+      critical,
+      slaBreached,
+      totalHostels,
+      totalRooms,
+      totalStudents,
+      totalStaff,
+      recentComplaints,
+    };
   }
 }

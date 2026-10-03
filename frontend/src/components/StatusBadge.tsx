@@ -4,7 +4,7 @@ import { ComplaintStatus } from '../types';
 export const StatusBadge: React.FC<{ status: ComplaintStatus }> = ({ status }) => {
   const styles: Record<ComplaintStatus, { bg: string; text: string; dot: string; label: string }> = {
     SUBMITTED: { bg: 'bg-blue-500/10 border-blue-500/30', text: 'text-blue-400', dot: 'bg-blue-400', label: 'Submitted' },
-    AI_PROCESSED: { bg: 'bg-indigo-500/10 border-indigo-500/30', text: 'text-indigo-400', dot: 'bg-indigo-400', label: 'AI Triaged' },
+    AI_PROCESSED: { bg: 'bg-indigo-500/10 border-indigo-500/30', text: 'text-indigo-400', dot: 'bg-indigo-400', label: 'Triaged' },
     NEEDS_REVIEW: { bg: 'bg-yellow-500/10 border-yellow-500/30', text: 'text-yellow-400', dot: 'bg-yellow-400', label: 'Needs Review' },
     ASSIGNED: { bg: 'bg-cyan-500/10 border-cyan-500/30', text: 'text-cyan-400', dot: 'bg-cyan-400', label: 'Assigned' },
     IN_PROGRESS: { bg: 'bg-amber-500/10 border-amber-500/30', text: 'text-amber-400', dot: 'bg-amber-400', label: 'In Progress' },

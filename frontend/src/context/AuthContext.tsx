@@ -5,7 +5,15 @@ import { api } from '../api/client';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<User>;
+  studentSignUp: (email: string, pass: string) => Promise<User>;
+  completeStudentOnboarding: (data: {
+    name: string;
+    studentId: string;
+    hostelName: string;
+    roomNumber: string;
+  }) => Promise<User>;
+  setPermanentPassword: (currentPass: string, newPass: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => void;
   switchDemoRole: (role: Role) => Promise<void>;
@@ -43,12 +51,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchCurrentUser();
   }, []);
 
-  const login = async (email: string, pass: string) => {
+  const login = async (email: string, pass: string): Promise<User> => {
     const res: any = await api.post('/auth/login', { email, password: pass });
     if (res?.success) {
       localStorage.setItem('vynk_access_token', res.data.accessToken);
       localStorage.setItem('vynk_refresh_token', res.data.refreshToken);
       setUser(res.data.user);
+      return res.data.user;
+    }
+    throw new Error(res?.message || 'Login failed');
+  };
+
+  const studentSignUp = async (email: string, pass: string): Promise<User> => {
+    const res: any = await api.post('/auth/student/signup', { email, password: pass });
+    if (res?.success) {
+      localStorage.setItem('vynk_access_token', res.data.accessToken);
+      localStorage.setItem('vynk_refresh_token', res.data.refreshToken);
+      setUser(res.data.user);
+      return res.data.user;
+    }
+    throw new Error(res?.message || 'Sign up failed');
+  };
+
+  const completeStudentOnboarding = async (data: {
+    name: string;
+    studentId: string;
+    hostelName: string;
+    roomNumber: string;
+  }): Promise<User> => {
+    const res: any = await api.post('/auth/student/onboarding', data);
+    if (res?.success) {
+      setUser(res.data.user);
+      return res.data.user;
+    }
+    throw new Error(res?.message || 'Profile setup failed');
+  };
+
+  const setPermanentPassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+    const res: any = await api.post('/auth/set-password', { currentPassword, newPassword });
+    if (res?.success) {
+      setUser((prev) => (prev ? { ...prev, is_first_login: false } : null));
+    } else {
+      throw new Error(res?.message || 'Failed to update password');
     }
   };
 
@@ -67,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  // Demo helper for the hackathon presentation script
+  // Demo helper for the presentation script
   const switchDemoRole = async (targetRole: Role) => {
     const demoAccounts: Record<Role, string> = {
       STUDENT: 'student1@vynk.local',
@@ -81,7 +125,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, switchDemoRole }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        studentSignUp,
+        completeStudentOnboarding,
+        setPermanentPassword,
+        register,
+        logout,
+        switchDemoRole,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

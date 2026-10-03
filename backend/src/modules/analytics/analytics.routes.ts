@@ -62,4 +62,10 @@ router.get(
   AnalyticsController.exportReport
 );
 
+router.get(
+  '/super-admin',
+  requireRole(Role.SUPERADMIN),
+  AnalyticsController.getSuperAdmin
+);
+
 export default router;

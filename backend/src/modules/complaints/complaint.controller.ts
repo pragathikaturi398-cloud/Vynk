@@ -52,7 +52,7 @@ export class ComplaintController {
 
   static async getComplaints(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const { status, hostel, category, q, from, to } = req.query;
+      const { status, hostel, category, q, from, to, scope } = req.query;
 
       const complaints = await ComplaintService.getComplaints({
         status: status ? String(status) : undefined,
@@ -61,6 +61,7 @@ export class ComplaintController {
         q: q ? String(q) : undefined,
         from: from ? String(from) : undefined,
         to: to ? String(to) : undefined,
+        scope: scope ? String(scope) : undefined,
         userRole: req.user?.role as Role,
         userId: req.user?.userId,
         userHostelId: req.user?.hostelId,
@@ -120,13 +121,14 @@ export class ComplaintController {
   static async assignComplaint(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { team_id, assigned_to, severity, category_id, note } = req.body;
+      const { team_id, assigned_to, worker, severity, category_id, note } = req.body;
 
       const updated = await ComplaintService.assignComplaint({
         complaintId: id,
         actorId: req.user!.userId,
         teamId: team_id,
         assignedTo: assigned_to,
+        worker,
         severity: severity as Severity,
         categoryId: category_id,
         note,
@@ -135,6 +137,20 @@ export class ComplaintController {
       res.status(200).json({
         success: true,
         message: 'Complaint assignment updated successfully',
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async autoCategorizeComplaint(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const updated = await ComplaintService.autoCategorizeComplaint(id, req.user?.userId);
+      res.status(200).json({
+        success: true,
+        message: `Category automatically assigned: ${updated.category.name}`,
         data: updated,
       });
     } catch (error) {

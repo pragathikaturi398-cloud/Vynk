@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { Navbar } from './components/Navbar';
@@ -11,6 +11,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ComplaintsTablePage } from './pages/admin/ComplaintsTablePage';
 import { AnalyticsPage } from './pages/admin/AnalyticsPage';
 import { AuditPage } from './pages/admin/AuditPage';
+import { SuperAdminPortal } from './pages/admin/SuperAdminPortal';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[] }> = ({
   children,
@@ -37,15 +38,99 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   return <>{children}</>;
 };
 
-const RootRedirect: React.FC = () => {
-  const { user, loading } = useAuth();
+const AppContent: React.FC = () => {
+  const { user } = useAuth();
+  const location = useLocation();
 
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  const isAuthScreen = location.pathname === '/' || location.pathname === '/login';
 
-  if (user.role === 'STUDENT') return <Navigate to="/student" replace />;
-  if (user.role === 'MAINTENANCE') return <Navigate to="/maintenance" replace />;
-  return <Navigate to="/admin" replace />;
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {!isAuthScreen && <Navbar />}
+      <main className="flex-1">
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Student Routes */}
+          <Route
+            path="/student"
+            element={
+              <ProtectedRoute allowedRoles={['STUDENT']}>
+                <StudentDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Complaint Details (Shared across roles) */}
+          <Route
+            path="/complaints/:id"
+            element={
+              <ProtectedRoute>
+                <ComplaintDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Maintenance Staff Routes */}
+          <Route
+            path="/maintenance"
+            element={
+              <ProtectedRoute allowedRoles={['MAINTENANCE', 'SUPERADMIN']}>
+                <MaintenanceDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin & Warden Routes */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['WARDEN', 'SUPERADMIN']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/complaints"
+            element={
+              <ProtectedRoute allowedRoles={['WARDEN', 'SUPERADMIN']}>
+                <ComplaintsTablePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['WARDEN', 'SUPERADMIN']}>
+                <AnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/audit"
+            element={
+              <ProtectedRoute allowedRoles={['WARDEN', 'SUPERADMIN']}>
+                <AuditPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Super Admin Command Center */}
+          <Route
+            path="/super-admin"
+            element={
+              <ProtectedRoute allowedRoles={['SUPERADMIN']}>
+                <SuperAdminPortal />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+    </div>
+  );
 };
 
 export const App: React.FC = () => {
@@ -53,81 +138,7 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <AuthProvider>
         <SocketProvider>
-          <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-            <Navbar />
-            <main className="flex-1">
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/" element={<RootRedirect />} />
-
-                {/* Student Routes */}
-                <Route
-                  path="/student"
-                  element={
-                    <ProtectedRoute allowedRoles={['STUDENT']}>
-                      <StudentDashboard />
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* Complaint Details (Shared across roles) */}
-                <Route
-                  path="/complaints/:id"
-                  element={
-                    <ProtectedRoute>
-                      <ComplaintDetailPage />
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* Maintenance Staff Routes */}
-                <Route
-                  path="/maintenance"
-                  element={
-                    <ProtectedRoute allowedRoles={['MAINTENANCE', 'SUPERADMIN']}>
-                      <MaintenanceDashboard />
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* Admin & Warden Routes */}
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute allowedRoles={['WARDEN', 'SUPERADMIN']}>
-                      <AdminDashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/complaints"
-                  element={
-                    <ProtectedRoute allowedRoles={['WARDEN', 'SUPERADMIN']}>
-                      <ComplaintsTablePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/analytics"
-                  element={
-                    <ProtectedRoute allowedRoles={['WARDEN', 'SUPERADMIN']}>
-                      <AnalyticsPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/audit"
-                  element={
-                    <ProtectedRoute allowedRoles={['WARDEN', 'SUPERADMIN']}>
-                      <AuditPage />
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </main>
-          </div>
+          <AppContent />
         </SocketProvider>
       </AuthProvider>
     </BrowserRouter>

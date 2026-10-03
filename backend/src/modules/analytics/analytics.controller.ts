@@ -120,4 +120,13 @@ export class AnalyticsController {
       next(error);
     }
   }
+
+  static async getSuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const data = await AnalyticsService.getSuperAdminMetrics();
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

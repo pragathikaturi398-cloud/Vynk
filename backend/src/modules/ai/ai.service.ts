@@ -198,7 +198,14 @@ Return a JSON object conforming strictly to this format:
     }
 
     // Sanitation
-    if (lower.includes('clean') || lower.includes('cockroach') || lower.includes('rat') || lower.includes('pest') || lower.includes('garbage')) {
+    if (
+      lower.includes('clean') ||
+      lower.includes('cockroach') ||
+      /\brats?\b/i.test(text) ||
+      lower.includes('rodent') ||
+      lower.includes('pest') ||
+      lower.includes('garbage')
+    ) {
       return {
         category: 'Sanitation & Cleanliness',
         subcategory: lower.includes('pest') || lower.includes('cockroach') ? 'Pest / Insect Infestation' : 'Bathroom Deep Cleaning Needed',
@@ -222,10 +229,103 @@ Return a JSON object conforming strictly to this format:
       };
     }
 
+    // HVAC & Air Conditioning
+    if (
+      /\bac\b/i.test(text) ||
+      lower.includes('a/c') ||
+      lower.includes('air conditioner') ||
+      lower.includes('air conditioning') ||
+      lower.includes('cooler') ||
+      lower.includes('hvac') ||
+      lower.includes('compressor')
+    ) {
+      return {
+        category: 'HVAC & Air Conditioning',
+        subcategory: lower.includes('compressor') ? 'Compressor / Refrigerant Fault' : 'Air Conditioner Cooling Fault',
+        severity: Severity.HIGH,
+        severity_reason: 'Room temperature control or AC malfunction',
+        summary: 'Air conditioning / room cooling service needed',
+        confidence: 0.9,
+      };
+    }
+
+    // Appliances & Laundry
+    if (
+      lower.includes('washing machine') ||
+      lower.includes('laundry') ||
+      lower.includes('dryer') ||
+      lower.includes('geyser') ||
+      lower.includes('refrigerator') ||
+      lower.includes('fridge') ||
+      lower.includes('microwave') ||
+      lower.includes('water heater')
+    ) {
+      return {
+        category: 'Appliances & Laundry',
+        subcategory: lower.includes('washing machine')
+          ? 'Washing Machine Breakdown'
+          : lower.includes('geyser')
+          ? 'Geyser / Water Heater Fault'
+          : 'Hostel Appliance Malfunction',
+        severity: Severity.HIGH,
+        severity_reason: 'Hostel electrical appliance breakdown',
+        summary: 'Hostel appliance repair request',
+        confidence: 0.9,
+      };
+    }
+
+    // Elevator & Lift
+    if (lower.includes('elevator') || lower.includes('lift')) {
+      return {
+        category: 'Elevator & Lift Services',
+        subcategory: 'Elevator Breakdown / Maintenance',
+        severity: Severity.CRITICAL,
+        severity_reason: 'Elevator safety and mobility service required',
+        summary: 'Elevator breakdown or maintenance request',
+        confidence: 0.95,
+      };
+    }
+
+    // Water Purifier & Drinking Water
+    if (lower.includes('purifier') || lower.includes('ro filter') || lower.includes('water cooler') || lower.includes('drinking water')) {
+      return {
+        category: 'Water Purifier & RO Systems',
+        subcategory: 'RO Filter / Water Dispenser Malfunction',
+        severity: Severity.HIGH,
+        severity_reason: 'Drinking water access disruption',
+        summary: 'Drinking water purification unit issue',
+        confidence: 0.9,
+      };
+    }
+
+    // Gym & Sports Equipment
+    if (lower.includes('gym') || lower.includes('treadmill') || lower.includes('weights') || lower.includes('badminton')) {
+      return {
+        category: 'Gym & Sports Equipment',
+        subcategory: 'Fitness Machine / Sports Facility Fault',
+        severity: Severity.MEDIUM,
+        severity_reason: 'Sports or gym facility equipment repair',
+        summary: 'Hostel recreational equipment maintenance',
+        confidence: 0.85,
+      };
+    }
+
+    // Civil & Structural
+    if (lower.includes('plaster') || lower.includes('seepage') || lower.includes('tile') || lower.includes('wall') || lower.includes('ceiling')) {
+      return {
+        category: 'Civil & Wall Infrastructure',
+        subcategory: 'Wall Plaster Flaking / Seepage',
+        severity: Severity.MEDIUM,
+        severity_reason: 'Structural masonry or wall maintenance required',
+        summary: 'Civil repair and plaster maintenance',
+        confidence: 0.85,
+      };
+    }
+
     // Default general
     return {
       category: 'Room Infrastructure',
-      subcategory: 'Severe Wall Dampness / Seepage',
+      subcategory: 'General Infrastructure Maintenance',
       severity: Severity.MEDIUM,
       severity_reason: 'General hostel infrastructure issue',
       summary: text.slice(0, 80),

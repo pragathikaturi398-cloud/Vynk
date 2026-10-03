@@ -10,6 +10,8 @@ import complaintRoutes from './modules/complaints/complaint.routes';
 import notificationRoutes from './modules/notifications/notification.routes';
 import analyticsRoutes from './modules/analytics/analytics.routes';
 import auditRoutes from './modules/audit/audit.routes';
+import userRoutes from './modules/users/user.routes';
+import maintenanceStaffRoutes from './modules/maintenance/maintenance-staff.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp() {
@@ -39,6 +41,8 @@ export function createApp() {
   app.use('/reports', analyticsRoutes); // For /reports/export
   app.use('/insights', analyticsRoutes); // For /insights
   app.use('/audit-logs', auditRoutes);
+  app.use('/users', userRoutes);
+  app.use('/maintenance-staff', maintenanceStaffRoutes);
 
   // Central Error Handler
   app.use(errorHandler);

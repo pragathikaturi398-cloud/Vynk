@@ -84,7 +84,7 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-base text-white">Report Hostel Issue</h3>
-              <p className="text-xs text-slate-400">AI will classify, check duplicates, & dispatch team</p>
+              <p className="text-xs text-slate-400">Smart triage classifies, checks duplicates, & dispatches team</p>
             </div>
           </div>
           <button
@@ -179,11 +179,11 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
             </div>
           </div>
 
-          {/* AI Banner */}
+          {/* Automated Triage Banner */}
           <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 flex items-start gap-2">
             <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
             <p>
-              <strong>AI Triage & Duplicate Protection:</strong> Gemini classifies the category, assigns priority, and checks for open duplicates nearby to fast-track resolution.
+              <strong>Automated Triage & Duplicate Protection:</strong> The system automatically classifies the category, assigns priority, and checks for open duplicates nearby to fast-track resolution.
             </p>
           </div>
 
