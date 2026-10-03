@@ -1,5 +1,6 @@
 # Vynk: Smart Hostel Complaint Management Platform
-
+you can view prototype here:
+https://vynk-studio.ai.studio
 > A smart and efficient platform for reporting, prioritizing, tracking, and resolving hostel complaints with automated AI triage and SLA tracking.
 
 ## 🚀 Deployment on Vercel
